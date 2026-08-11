@@ -2,8 +2,6 @@
 
 A modular Nextflow DSL2 workflow for paired-end 16S rRNA V1–V3 amplicon sequencing analysis using Cutadapt, FastQC, MultiQC, QIIME 2, DADA2, SILVA taxonomy, phylogenetic reconstruction, and alpha/beta diversity analysis.
 
-> This is an independent research workflow inspired by nf-core conventions. It is not an official nf-core pipeline.
-
 ## Overview
 
 The workflow processes paired-end Illumina FASTQ files from raw-read quality control through ASV inference, taxonomic classification, phylogenetic reconstruction, and diversity analysis.
