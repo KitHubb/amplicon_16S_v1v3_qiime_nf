@@ -1,0 +1,12 @@
+primer_f: "AGAGTTTGATCCTGGCTCAG"
+adapter_f: "CCAGCAGCCGCGGTAAT"
+primer_r: "ATTACCGCGGCTGCTGG"
+adapter_r: "CTGAGCCAGGATCAAACTCT"
+quality: 20
+min_length: 50
+dada2_trunc_len_f: 0
+dada2_trunc_len_r: 0
+dada2_max_ee_f: 2
+dada2_max_ee_r: 4
+taxonomy_enabled: true
+classifier: /data/Reference/QIIME2-2025.7/Bacteria/SILVA/silva-138-99-nb-classifier.qza

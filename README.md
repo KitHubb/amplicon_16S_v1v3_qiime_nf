@@ -1,81 +1,381 @@
-# DT V1-V3 paired-end Nextflow pipeline
+# amplicon_16S_v1v3_qiime_nf
 
-## DSL2 structure
+A modular Nextflow DSL2 workflow for paired-end 16S rRNA V1–V3 amplicon sequencing analysis using Cutadapt, FastQC, MultiQC, QIIME 2, DADA2, SILVA taxonomy, phylogenetic reconstruction, and alpha/beta diversity analysis.
 
-```text
-main.nf                         input plus visible end-to-end workflow order
-subworkflows/local/raw_qc.nf    raw FastQC + MultiQC
-subworkflows/local/clean_qc.nf  cleaned FastQC + MultiQC
-subworkflows/local/read_cleanup.nf
-subworkflows/local/qiime_import.nf
-subworkflows/local/qiime_dada2.nf
-subworkflows/local/qiime_taxonomy.nf
-modules/local/fastqc.nf         one flat file per tool/process
-modules/local/multiqc.nf
-modules/local/cutadapt_v1v3.nf
-modules/local/qiime_import.nf
-modules/local/qiime_dada2.nf
-modules/local/qiime_taxonomy.nf
-conf/                           optional execution profiles
-params/                         analysis parameter sets
-```
+> This is an independent research workflow inspired by nf-core conventions. It is not an official nf-core pipeline.
 
-This separation follows the official Nextflow DSL2 and nf-core pipeline layout. It is nf-core-inspired rather than an assertion that this private workflow is an officially released nf-core pipeline.
+## Overview
 
-This workflow independently processes the two DT raw-data directories. It does not merge the datasets.
-
-## Workflow
-
-`raw FASTQ -> FastQC/MultiQC -> Cutadapt V1-V3 Q20 -> FastQC/MultiQC -> QIIME 2 import -> DADA2 paired -> SILVA taxonomy -> taxa barplot`
-
-Cutadapt reproduces the supplied settings:
+The workflow processes paired-end Illumina FASTQ files from raw-read quality control through ASV inference, taxonomic classification, phylogenetic reconstruction, and diversity analysis.
 
 ```text
--g AGAGTTTGATCCTGGCTCAG -a CCAGCAGCCGCGGTAAT
--G ATTACCGCGGCTGCTGG -A CTGAGCCAGGATCAAACTCT
--n 2 -q 20 -Q 20 --minimum-length 50 --discard-untrimmed
+Paired-end FASTQ
+    |
+    |-- Raw FastQC / MultiQC
+    |
+    |-- Cutadapt
+    |   |-- V1-V3 primer trimming
+    |   |-- Q20 quality trimming
+    |   |-- Minimum-length filtering
+    |   `-- Untrimmed-read removal
+    |
+    |-- Clean FastQC / MultiQC
+    |
+    |-- QIIME 2 paired-end import
+    |
+    |-- DADA2
+    |   |-- Quality filtering
+    |   |-- Error correction
+    |   |-- Paired-end merging
+    |   `-- Chimera removal
+    |
+    |-- SILVA taxonomy classification
+    |
+    |-- MAFFT alignment and FastTree phylogeny
+    |
+    `-- Alpha and beta diversity
+        |-- Faith's phylogenetic diversity
+        |-- Observed features
+        |-- Shannon diversity
+        |-- Pielou's evenness
+        |-- Bray-Curtis
+        |-- Jaccard
+        |-- Weighted UniFrac
+        |-- Unweighted UniFrac
+        |-- PCoA
+        `-- Emperor plots
 ```
 
-## Before the first run
-
-1. Confirm the paired filename pattern is `sample_1.fastq.gz` / `sample_2.fastq.gz`.
-2. Check the three Singularity image paths in `nextflow.config`.
-3. If filenames use `_R1_001.fastq.gz` / `_R2_001.fastq.gz`, change each `--reads` glob in `run_both.sh` accordingly (for example `*_R{1,2}_001.fastq.gz`).
-
-## Run datasets independently
-
-Run `nextflow run /data/software/nextflow/amplicon_16S_v1v3_qiime_nf/main.nf` directly for each raw directory. No wrapper shell script is included.
-
-The two result trees are:
+## Pipeline structure
 
 ```text
-/data/home2/ksy/260811_DT_swab/Output/HN00194709_2nd_HN00182797/
-/data/home2/ksy/260811_DT_swab/Output/HN00182797/
-/data/home2/ksy/260811_DT_swab/Output/work/
+.
+|-- main.nf
+|-- nextflow.config
+|-- nextflow_schema.json
+|-- conf/
+|   `-- base.config
+|-- params/
+|   `-- v1v3_q20.yml
+|-- modules/local/
+|   |-- fastqc.nf
+|   |-- multiqc.nf
+|   |-- cutadapt_v1v3.nf
+|   |-- qiime_import.nf
+|   |-- qiime_dada2.nf
+|   |-- qiime_taxonomy.nf
+|   |-- qiime_phylogeny.nf
+|   `-- qiime_diversity.nf
+`-- subworkflows/local/
+    |-- raw_qc.nf
+    |-- read_cleanup.nf
+    |-- clean_qc.nf
+    |-- qiime_import.nf
+    |-- qiime_dada2.nf
+    |-- qiime_taxonomy.nf
+    |-- qiime_phylogeny.nf
+    `-- qiime_diversity.nf
 ```
 
-Compare `01_raw_qc/multiqc`, `03_clean_qc/multiqc`, and especially `05_dada2/denoising-stats.qzv`. Prefer the dataset with good primer retention and a higher merged/non-chimeric read fraction, not merely the larger raw read count.
+## Requirements
 
-## SILVA taxonomy
+- Linux
+- Nextflow 26.04.2 or later
+- Singularity or Apptainer
+- Paired-end Illumina FASTQ files
+- A QIIME 2-compatible SILVA classifier
+- A QIIME 2-compatible metadata TSV file
 
-Taxonomy is enabled by default using the classifier path from the referenced 16S workflow:
+The workflow uses separate containers for:
+
+- FastQC and MultiQC
+- Cutadapt
+- QIIME 2 Amplicon
+
+Container and classifier paths must be configured for the local computing environment.
+
+## Input data
+
+Paired FASTQ files are detected with a Nextflow file-pair pattern.
+
+Example filenames:
 
 ```text
-/data/Reference/QIIME2-2025.7/Bacteria/SILVA/silva-138-99-nb-classifier.qza
+Sample01_1.fastq.gz
+Sample01_2.fastq.gz
+Sample02_1.fastq.gz
+Sample02_2.fastq.gz
 ```
 
-If the classifier is stored elsewhere, override it with:
+Example input pattern:
 
 ```bash
-nextflow run main.nf -profile singularity \
-  -params-file params/v1v3_q20.yml \
-  --reads '/data/FASTQ/HN00182797/DT/*_{1,2}.fastq.gz' \
-  --outdir results/HN00182797 \
-  --classifier /data/Reference/path/to/silva-v1v3-classifier.qza \
+--reads '/data/FASTQ/project/*_{1,2}.fastq.gz'
+```
+
+If the files use names such as `_R1_001.fastq.gz` and `_R2_001.fastq.gz`, adjust the input glob accordingly.
+
+## Metadata
+
+The first metadata column must be `sample-id`, and its values must match the FASTQ sample IDs produced by `Channel.fromFilePairs`.
+
+```text
+sample-id    subject-id    swab-type    site-id    control-status
+Sample01     S001          Copan        Ac         sample
+Sample02     Control       Puritan      NC         negative-control
+```
+
+Provide the metadata file with:
+
+```bash
+--metadata /path/to/metadata.tsv
+```
+
+Do not commit participant metadata or direct identifiers to a public repository.
+
+## V1–V3 primer configuration
+
+Default Cutadapt sequences:
+
+```text
+Forward primer (-g):
+AGAGTTTGATCCTGGCTCAG
+
+Forward read-through sequence (-a):
+CCAGCAGCCGCGGTAAT
+
+Reverse primer (-G):
+ATTACCGCGGCTGCTGG
+
+Reverse read-through sequence (-A):
+CTGAGCCAGGATCAAACTCT
+```
+
+Default filtering:
+
+```text
+Quality cutoff: Q20 for R1 and R2
+Minimum length: 50 bp
+Adapter search rounds: 2
+Discard untrimmed reads: enabled
+```
+
+These settings can be changed in `params/v1v3_q20.yml` or overridden on the command line.
+
+## Usage
+
+```bash
+nextflow run /path/to/amplicon_16S_v1v3_qiime_nf/main.nf \
+  -profile singularity \
+  -params-file /path/to/amplicon_16S_v1v3_qiime_nf/params/v1v3_q20.yml \
+  --reads '/data/FASTQ/project/*_{1,2}.fastq.gz' \
+  --metadata /path/to/metadata.tsv \
+  --classifier /path/to/silva-classifier.qza \
+  --sampling_depth 1000 \
+  --outdir /path/to/results \
+  -work-dir /path/to/work \
   -resume
 ```
 
-## Important V1-V3 note
+Use the same work directory with `-resume` to reuse successfully completed tasks.
 
-V1-V3 amplicons are relatively long. Quality trimming can shorten R2 enough to prevent paired-end overlap. The initial DADA2 configuration therefore uses `trunc-len-f/r=0` after Cutadapt rather than imposing another fixed truncation. If the DADA2 merge rate is poor, inspect the cleaned-read length/quality plots and benchmark adjusted truncation or a forward-only sensitivity analysis; do not pool the two sequencing datasets as if they were different biological samples.
-# amplicon_16S_v1v3_qiime_nf
+## Major outputs
+
+```text
+results/
+|-- 01_raw_qc/
+|-- 02_cutadapt_q20/
+|-- 03_clean_qc/
+|-- 04_qiime2_import/
+|-- 05_dada2/
+|-- 06_taxonomy/
+|-- 07_phylogeny/
+`-- 08_diversity/
+```
+
+### Raw and cleaned-read quality control
+
+```text
+01_raw_qc/
+|-- fastqc/
+`-- multiqc/
+
+03_clean_qc/
+|-- fastqc/
+`-- multiqc/
+```
+
+### Cutadapt
+
+```text
+02_cutadapt_q20/
+|-- SAMPLE.R1.trimmed.fastq.gz
+|-- SAMPLE.R2.trimmed.fastq.gz
+|-- SAMPLE.cutadapt.json
+`-- SAMPLE.cutadapt.log
+```
+
+### QIIME 2 import
+
+```text
+04_qiime2_import/
+|-- manifest.tsv
+|-- demux-paired.qza
+`-- demux-summary.qzv
+```
+
+### DADA2
+
+```text
+05_dada2/
+|-- table.qza
+|-- rep-seqs.qza
+|-- denoising-stats.qza
+|-- denoising-stats.qzv
+|-- table-summary.qzv
+`-- rep-seqs.qzv
+```
+
+### Taxonomy
+
+```text
+06_taxonomy/
+|-- taxonomy.qza
+|-- taxonomy.qzv
+`-- taxa-bar-plots.qzv
+```
+
+### Phylogeny
+
+```text
+07_phylogeny/
+|-- aligned-rep-seqs.qza
+|-- masked-aligned-rep-seqs.qza
+|-- unrooted-tree.qza
+`-- rooted-tree.qza
+```
+
+### Diversity
+
+```text
+08_diversity/
+|-- core-metrics-results/
+|-- alpha-rarefaction.qzv
+|-- faith-pd-group-significance.qzv
+|-- observed-group-significance.qzv
+|-- shannon-group-significance.qzv
+`-- evenness-group-significance.qzv
+```
+
+The core metrics directory includes:
+
+- Bray-Curtis and Jaccard distance matrices
+- Weighted and unweighted UniFrac distance matrices
+- PCoA results
+- Emperor visualizations
+- Faith's PD, observed features, Shannon diversity, and evenness vectors
+
+## DADA2 defaults
+
+```yaml
+dada2_trunc_len_f: 0
+dada2_trunc_len_r: 0
+dada2_max_ee_f: 2
+dada2_max_ee_r: 4
+```
+
+Fixed truncation is disabled because Cutadapt performs Q20 trimming before QIIME 2 import. V1–V3 amplicons are relatively long, so reverse-read quality and retained read length should be reviewed before final analysis.
+
+## Sampling depth
+
+The initial diversity sampling depth is:
+
+```yaml
+sampling_depth: 1000
+```
+
+This is an initial value, not a universal recommendation. Review `05_dada2/table-summary.qzv` and choose an appropriate sampling depth based on retained sample frequencies before the final diversity analysis.
+
+## Important considerations
+
+- V1–V3 amplicons are relatively long, so reverse-read quality can strongly affect paired-end merging.
+- `--discard-untrimmed` can remove reads containing primer mismatches.
+- DADA2 truncation lengths are initially set to zero because Cutadapt performs quality trimming.
+- The SILVA classifier must be compatible with the installed QIIME 2 version.
+- A V1–V3 region-specific classifier may improve taxonomic classification.
+- Negative controls should be retained and evaluated during contamination assessment.
+- Metadata sample IDs must exactly match the imported QIIME sample IDs.
+
+## Reproducibility
+
+The workflow records versions for:
+
+- FastQC
+- MultiQC
+- Cutadapt
+- QIIME 2
+
+Pin container image versions and the exact classifier artifact used for publication analyses.
+
+## Repository exclusions
+
+Do not commit raw sequencing data, QIIME artifacts, containers, work directories, or participant metadata.
+
+Recommended `.gitignore` entries:
+
+```gitignore
+# Nextflow
+.nextflow/
+.nextflow.log*
+work/
+
+# Pipeline outputs
+results/
+Output/
+
+# Sequencing data
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
+
+# QIIME 2 artifacts
+*.qza
+*.qzv
+
+# Containers
+*.sif
+*.img
+*.simg
+
+# Metadata and private data
+*metadata*.tsv
+*metadata*.xlsx
+Input/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+```
+
+## License
+
+MIT License is recommended unless institutional or dependency-specific requirements apply.
+
+## Citation
+
+If you use this workflow, cite the underlying tools and databases:
+
+- Nextflow
+- FastQC
+- MultiQC
+- Cutadapt
+- QIIME 2
+- DADA2
+- SILVA
+- MAFFT
+- FastTree
+
+A dedicated `CITATIONS.md` with versions, DOIs, and URLs is recommended for publication use.

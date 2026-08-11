@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DT V1-V3 amplicon pipeline parameters",
+  "type": "object",
+  "properties": {
+    "reads": { "type": "string", "description": "Paired FASTQ glob" },
+    "outdir": { "type": "string", "default": "results" },
+    "classifier": { "type": "string", "description": "QIIME 2 SILVA classifier artifact" },
+    "quality": { "type": "integer", "default": 20, "minimum": 0 },
+    "min_length": { "type": "integer", "default": 50, "minimum": 1 },
+    "dada2_trunc_len_f": { "type": "integer", "default": 0, "minimum": 0 },
+    "dada2_trunc_len_r": { "type": "integer", "default": 0, "minimum": 0 }
+  },
+  "required": ["reads", "classifier"]
+}
