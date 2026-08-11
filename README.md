@@ -177,6 +177,12 @@ nextflow run /path/to/amplicon_16S_v1v3_qiime_nf/main.nf \
 
 Use the same work directory with `-resume` to reuse successfully completed tasks.
 
+To run through phylogeny while skipping alpha/beta diversity, add:
+
+```bash
+--diversity_enabled false
+```
+
 ## Major outputs
 
 ```text
@@ -377,3 +383,53 @@ If you use this workflow, cite the underlying tools and databases:
 - FastTree
 
 A dedicated `CITATIONS.md` with versions, DOIs, and URLs is recommended for publication use.
+
+## Optional DADA2 truncation optimization
+
+Enable the parameter sweep with `--trimm_optimal true`. Candidate forward/reverse
+truncation lengths are read from the tab-delimited file specified by
+`--trimm_combinations`. The required columns are `name`, `trunc_len_f`, and
+`trunc_len_r`; the default ten-condition file is `params/trimm_combinations_10bp.tsv`.
+Every candidate must have a forward length greater than its reverse length, and
+both values must use 10-nt increments. Invalid rows stop the workflow before the
+DADA2 sweep begins.
+
+Each candidate is denoised independently and classified with the supplied SILVA
+classifier at a fixed confidence threshold. All successfully completed candidates
+are retained in the comparison table. Low-depth and zero-merge sample counts are
+reported as descriptive columns and are not used to remove candidates. Ranking is
+ordered by:
+
+1. Species-assigned reads as a percentage of DADA2 input reads.
+2. Species-assigned reads as a percentage of the feature table.
+3. Overall non-chimeric retention.
+
+Example:
+
+```bash
+nextflow run /data/software/nextflow/amplicon_16S_v1v3_qiime_nf/main.nf \
+  -profile singularity \
+  -params-file /data/software/nextflow/amplicon_16S_v1v3_qiime_nf/params/v1v3_q20.yml \
+  --reads '/data/FASTQ/HN00182797/DT/*_{1,2}.fastq.gz' \
+  --run_label HN00182797 \
+  --outdir /data/home2/ksy/260811_DT_swab/Output/HN00182797 \
+  --classifier /data/Reference/QIIME2-2025.7/Bacteria/SILVA/silva-138-99-nb-classifier.qza \
+  --metadata /data/home2/ksy/260811_DT_swab/Input/DT_metadata_qiime.tsv \
+  --trimm_optimal true \
+  --trimm_combinations /data/software/nextflow/amplicon_16S_v1v3_qiime_nf/params/trimm_combinations_10bp.tsv \
+  --diversity_enabled false \
+  -work-dir /data/home2/ksy/260811_DT_swab/work/HN00182797 \
+  -resume
+```
+
+The comparison and selected artifacts are written below:
+
+```text
+trimm_optimal/selected/
+├── all_parameter_results.tsv
+├── optimal_selection.tsv
+├── optimal_truncation.txt
+├── selected-table.qza
+├── selected-rep-seqs.qza
+└── selected-denoising-stats.qza
+```

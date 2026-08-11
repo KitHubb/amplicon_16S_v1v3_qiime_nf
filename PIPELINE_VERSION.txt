@@ -1,4 +1,4 @@
-DT V1-V3 Nextflow pipeline v2.1 flat modular DSL2
+DT V1-V3 Nextflow pipeline v2.2 phylogeny and diversity
 Updated: 2026-08-11
 
 raw paired FASTQ
@@ -9,6 +9,8 @@ raw paired FASTQ
 -> DADA2 denoise-paired
 -> SILVA 138 99% taxonomy
 -> taxonomy table and taxa bar plot
+-> MAFFT alignment, masking, FastTree and rooted phylogeny
+-> core-metrics-phylogenetic alpha/beta diversity and alpha rarefaction
 
 Both sequencing runs are processed independently.
 

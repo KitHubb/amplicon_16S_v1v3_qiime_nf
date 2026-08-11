@@ -9,10 +9,16 @@ include { CLEAN_QC } from './subworkflows/local/clean_qc'
 include { QIIME_IMPORT_WORKFLOW } from './subworkflows/local/qiime_import'
 include { QIIME_DADA2_WORKFLOW } from './subworkflows/local/qiime_dada2'
 include { QIIME_TAXONOMY_WORKFLOW } from './subworkflows/local/qiime_taxonomy'
+include { QIIME_PHYLOGENY_WORKFLOW } from './subworkflows/local/qiime_phylogeny'
+include { QIIME_DIVERSITY_WORKFLOW } from './subworkflows/local/qiime_diversity'
+include { TRIMM_OPTIMAL_WORKFLOW } from './subworkflows/local/trimm_optimal'
 
 workflow {
     if (!params.reads) {
         error 'Provide --reads, e.g. /data/run/*_{1,2}.fastq.gz'
+    }
+    if (!params.metadata) {
+        error 'Provide --metadata with a QIIME 2-compatible TSV file'
     }
 
     reads_ch = Channel
@@ -35,15 +41,37 @@ workflow {
 
     QIIME_IMPORT_WORKFLOW(clean_fastqs_ch)
 
-    // 5. Paired-end DADA2 denoising, merging and chimera removal.
-    QIIME_DADA2_WORKFLOW(QIIME_IMPORT_WORKFLOW.out.demux)
+    metadata_ch = Channel.value(file(params.metadata, checkIfExists: true))
+    classifier_ch = Channel.value(file(params.classifier, checkIfExists: true))
 
-    // 6. SILVA taxonomy assignment and taxa bar plot.
-    classifier_ch = Channel.fromPath(params.classifier, checkIfExists: true)
+    // 5. Standard DADA2, or optional parameter sweep followed by rule-based selection.
+    if (params.trimm_optimal.toString().toBoolean()) {
+        TRIMM_OPTIMAL_WORKFLOW(QIIME_IMPORT_WORKFLOW.out.demux, classifier_ch)
+        selected_table_ch = TRIMM_OPTIMAL_WORKFLOW.out.table
+        selected_repseq_ch = TRIMM_OPTIMAL_WORKFLOW.out.repseq
+    } else {
+        QIIME_DADA2_WORKFLOW(QIIME_IMPORT_WORKFLOW.out.demux)
+        selected_table_ch = QIIME_DADA2_WORKFLOW.out.table
+        selected_repseq_ch = QIIME_DADA2_WORKFLOW.out.repseq
+    }
+
+    // 6. Final SILVA taxonomy assignment and taxa bar plot using the selected ASVs.
     QIIME_TAXONOMY_WORKFLOW(
-        QIIME_DADA2_WORKFLOW.out.repseq,
-        QIIME_DADA2_WORKFLOW.out.table,
-        QIIME_IMPORT_WORKFLOW.out.manifest,
+        selected_repseq_ch,
+        selected_table_ch,
+        metadata_ch,
         classifier_ch
     )
+
+    // 7. MAFFT alignment, masking, FastTree and midpoint-rooted phylogeny.
+    QIIME_PHYLOGENY_WORKFLOW(selected_repseq_ch)
+
+    // 8. Optional phylogenetic alpha/beta diversity, rarefaction, PCoA and Emperor plots.
+    if (params.diversity_enabled.toString().toBoolean()) {
+        QIIME_DIVERSITY_WORKFLOW(
+            selected_table_ch,
+            QIIME_PHYLOGENY_WORKFLOW.out.rooted_tree,
+            metadata_ch
+        )
+    }
 }

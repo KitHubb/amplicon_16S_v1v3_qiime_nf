@@ -6,10 +6,18 @@
     "reads": { "type": "string", "description": "Paired FASTQ glob" },
     "outdir": { "type": "string", "default": "results" },
     "classifier": { "type": "string", "description": "QIIME 2 SILVA classifier artifact" },
+    "metadata": { "type": "string", "description": "QIIME 2 metadata TSV" },
+    "sampling_depth": { "type": "integer", "default": 1000, "minimum": 1 },
+    "alpha_max_depth": { "type": "integer", "default": 10000, "minimum": 1 },
+    "diversity_enabled": { "type": "boolean", "default": true },
     "quality": { "type": "integer", "default": 20, "minimum": 0 },
     "min_length": { "type": "integer", "default": 50, "minimum": 1 },
     "dada2_trunc_len_f": { "type": "integer", "default": 0, "minimum": 0 },
-    "dada2_trunc_len_r": { "type": "integer", "default": 0, "minimum": 0 }
+    "dada2_trunc_len_r": { "type": "integer", "default": 0, "minimum": 0 },
+    "trimm_optimal": { "type": "boolean", "default": false },
+    "trimm_combinations": { "type": "string", "description": "TSV containing name, trunc_len_f and trunc_len_r" },
+    "taxonomy_confidence": { "type": "number", "default": 0.7, "minimum": 0, "maximum": 1 },
+    "optimal_min_sample_reads": { "type": "integer", "default": 10000, "minimum": 0 }
   },
-  "required": ["reads", "classifier"]
+  "required": ["reads", "classifier", "metadata"]
 }
