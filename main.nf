@@ -42,11 +42,23 @@ workflow {
     QIIME_IMPORT_WORKFLOW(clean_fastqs_ch)
 
     metadata_ch = Channel.value(file(params.metadata, checkIfExists: true))
-    classifier_ch = Channel.value(file(params.classifier, checkIfExists: true))
+    classifier_file = file(params.classifier, checkIfExists: true)
+    classifier_ch = Channel.value(classifier_file)
+
+    taxonomy_label = params.taxonomy_label?.toString()?.trim()
+    if (!taxonomy_label || taxonomy_label.equalsIgnoreCase('AUTO')) {
+        classifier_path_lower = classifier_file.toString().toLowerCase()
+        taxonomy_label = classifier_path_lower.contains('/gg2/')   ? 'GG2'   :
+                         classifier_path_lower.contains('/silva/') ? 'SILVA' :
+                         classifier_path_lower.contains('/gtdb')   ? 'GTDB'  :
+                         classifier_file.baseName
+    }
+    taxonomy_label = taxonomy_label.replaceAll(/[^A-Za-z0-9._-]/, '_')
+    taxonomy_label_ch = Channel.value(taxonomy_label)
 
     // 5. Standard DADA2, or optional parameter sweep followed by rule-based selection.
     if (params.trimm_optimal.toString().toBoolean()) {
-        TRIMM_OPTIMAL_WORKFLOW(QIIME_IMPORT_WORKFLOW.out.demux, classifier_ch)
+        TRIMM_OPTIMAL_WORKFLOW(QIIME_IMPORT_WORKFLOW.out.demux, classifier_ch, taxonomy_label_ch)
         selected_table_ch = TRIMM_OPTIMAL_WORKFLOW.out.table
         selected_repseq_ch = TRIMM_OPTIMAL_WORKFLOW.out.repseq
     } else {
@@ -60,7 +72,8 @@ workflow {
         selected_repseq_ch,
         selected_table_ch,
         metadata_ch,
-        classifier_ch
+        classifier_ch,
+        taxonomy_label_ch
     )
 
     // 7. MAFFT alignment, masking, FastTree and midpoint-rooted phylogeny.

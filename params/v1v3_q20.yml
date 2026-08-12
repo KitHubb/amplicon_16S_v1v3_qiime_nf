@@ -17,4 +17,5 @@ diversity_enabled: true
 trimm_optimal: false
 trimm_combinations: /data/software/nextflow/amplicon_16S_v1v3_qiime_nf/params/trimm_combinations_10bp.tsv
 taxonomy_confidence: 0.7
+taxonomy_label: AUTO
 optimal_min_sample_reads: 10000

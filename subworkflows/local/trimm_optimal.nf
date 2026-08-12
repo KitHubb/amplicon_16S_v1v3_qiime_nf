@@ -4,6 +4,7 @@ workflow TRIMM_OPTIMAL_WORKFLOW {
     take:
     demux
     classifier
+    taxonomy_label
 
     main:
     combinations = Channel
@@ -27,15 +28,19 @@ workflow TRIMM_OPTIMAL_WORKFLOW {
         .map { opt_id, trunc_f, trunc_r, demux_qza -> tuple(opt_id, trunc_f, trunc_r, demux_qza) }
 
     DADA2_TRIMM_SWEEP(sweep_input)
-    TAXONOMY_TRIMM_SWEEP(DADA2_TRIMM_SWEEP.out.results, classifier)
+    TAXONOMY_TRIMM_SWEEP(DADA2_TRIMM_SWEEP.out.results, classifier, taxonomy_label)
 
     candidate_files = TAXONOMY_TRIMM_SWEEP.out.evaluated
-        .flatMap { opt_id, trunc_f, trunc_r, table, repseq, stats, taxonomy, metrics ->
+        .flatMap { db, opt_id, trunc_f, trunc_r, table, repseq, stats, taxonomy, metrics ->
             [table, repseq, stats, taxonomy, metrics]
         }
         .collect()
 
-    SELECT_TRIMM_OPTIMAL(candidate_files)
+    selection_input = taxonomy_label
+        .combine(candidate_files)
+        .map { db, files -> tuple(db, files) }
+
+    SELECT_TRIMM_OPTIMAL(selection_input)
 
     emit:
     table           = SELECT_TRIMM_OPTIMAL.out.table

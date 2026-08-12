@@ -1,5 +1,5 @@
-DT V1-V3 Nextflow pipeline v2.2 phylogeny and diversity
-Updated: 2026-08-11
+DT V1-V3 Nextflow pipeline v2.3 classifier-aware trimming optimization
+Updated: 2026-08-12
 
 raw paired FASTQ
 -> raw FastQC/MultiQC
@@ -7,7 +7,7 @@ raw paired FASTQ
 -> cleaned FastQC/MultiQC
 -> QIIME 2 paired-end import
 -> DADA2 denoise-paired
--> SILVA 138 99% taxonomy
+-> classifier-aware taxonomy (SILVA, GG2, or another QIIME 2 classifier)
 -> taxonomy table and taxa bar plot
 -> MAFFT alignment, masking, FastTree and rooted phylogeny
 -> core-metrics-phylogenetic alpha/beta diversity and alpha rarefaction

@@ -394,6 +394,11 @@ Every candidate must have a forward length greater than its reverse length, and
 both values must use 10-nt increments. Invalid rows stop the workflow before the
 DADA2 sweep begins.
 
+Use `--taxonomy_label SILVA` or `--taxonomy_label GG2` when comparing classifiers.
+The label is included in the Nextflow task cache key, preventing taxonomy results
+from one classifier from being reused for another. `AUTO` infers SILVA, GG2, or
+GTDB from the classifier path.
+
 Each candidate is denoised independently and classified with the supplied SILVA
 classifier at a fixed confidence threshold. All successfully completed candidates
 are retained in the comparison table. Low-depth and zero-merge sample counts are
@@ -414,6 +419,7 @@ nextflow run /data/software/nextflow/amplicon_16S_v1v3_qiime_nf/main.nf \
   --run_label HN00182797 \
   --outdir /data/home2/ksy/260811_DT_swab/Output/HN00182797 \
   --classifier /data/Reference/QIIME2-2025.7/Bacteria/SILVA/silva-138-99-nb-classifier.qza \
+  --taxonomy_label SILVA \
   --metadata /data/home2/ksy/260811_DT_swab/Input/DT_metadata_qiime.tsv \
   --trimm_optimal true \
   --trimm_combinations /data/software/nextflow/amplicon_16S_v1v3_qiime_nf/params/trimm_combinations_10bp.tsv \
@@ -425,7 +431,7 @@ nextflow run /data/software/nextflow/amplicon_16S_v1v3_qiime_nf/main.nf \
 The comparison and selected artifacts are written below:
 
 ```text
-trimm_optimal/selected/
+trimm_optimal_SILVA/selected/
 ├── all_parameter_results.tsv
 ├── optimal_selection.tsv
 ├── optimal_truncation.txt
@@ -433,3 +439,8 @@ trimm_optimal/selected/
 ├── selected-rep-seqs.qza
 └── selected-denoising-stats.qza
 ```
+
+Using `--taxonomy_label GG2` writes the corresponding comparison to
+`trimm_optimal_GG2/selected/`. DADA2 sweep artifacts shared across classifiers are
+written to `trimm_optimal_dada2/`. Final classifier outputs are named
+`06_taxonomy/taxonomy_<LABEL>.qza` and `taxa-bar-plots_<LABEL>.qzv`.

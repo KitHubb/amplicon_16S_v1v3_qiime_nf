@@ -1,5 +1,5 @@
 process QIIME_TAXONOMY {
-    tag params.run_label
+    tag "${params.run_label}:${taxonomy_label}"
     label 'process_high'
     container params.qiime_sif
 
@@ -10,12 +10,13 @@ process QIIME_TAXONOMY {
     path table
     path metadata
     path classifier
+    val taxonomy_label
 
     output:
-    path 'taxonomy.qza',       emit: taxonomy
-    path 'taxonomy.qzv',       emit: taxonomy_summary
-    path 'taxa-bar-plots.qzv', emit: barplot
-    path 'versions.yml',       emit: versions
+    path "taxonomy_${taxonomy_label}.qza",       emit: taxonomy
+    path "taxonomy_${taxonomy_label}.qzv",       emit: taxonomy_summary
+    path "taxa-bar-plots_${taxonomy_label}.qzv", emit: barplot
+    path "versions_${taxonomy_label}.yml",       emit: versions
 
     script:
     """
@@ -25,20 +26,21 @@ process QIIME_TAXONOMY {
     qiime feature-classifier classify-sklearn \
       --i-classifier ${classifier} \
       --i-reads ${repseq} \
+      --p-confidence ${params.taxonomy_confidence} \
       --p-n-jobs ${task.cpus} \
-      --o-classification taxonomy.qza
+      --o-classification taxonomy_${taxonomy_label}.qza
 
     qiime metadata tabulate \
-      --m-input-file taxonomy.qza \
-      --o-visualization taxonomy.qzv
+      --m-input-file taxonomy_${taxonomy_label}.qza \
+      --o-visualization taxonomy_${taxonomy_label}.qzv
 
     qiime taxa barplot \
       --i-table ${table} \
-      --i-taxonomy taxonomy.qza \
+      --i-taxonomy taxonomy_${taxonomy_label}.qza \
       --m-metadata-file ${metadata} \
-      --o-visualization taxa-bar-plots.qzv
+      --o-visualization taxa-bar-plots_${taxonomy_label}.qzv
 
-    cat <<-END_VERSIONS > versions.yml
+    cat <<-END_VERSIONS > versions_${taxonomy_label}.yml
     "${task.process}":
       qiime2: \$(qiime --version 2>&1 | head -n 1)
     END_VERSIONS

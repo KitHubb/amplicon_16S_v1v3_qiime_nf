@@ -6,9 +6,10 @@ workflow QIIME_TAXONOMY_WORKFLOW {
     table
     metadata
     classifier
+    taxonomy_label
 
     main:
-    QIIME_TAXONOMY(repseq, table, metadata, classifier)
+    QIIME_TAXONOMY(repseq, table, metadata, classifier, taxonomy_label)
 
     emit:
     taxonomy         = QIIME_TAXONOMY.out.taxonomy

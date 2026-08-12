@@ -4,7 +4,7 @@ process DADA2_TRIMM_SWEEP {
     container params.qiime_sif
     errorStrategy 'ignore'
 
-    publishDir "${params.outdir}/trimm_optimal", mode: 'copy', overwrite: true
+    publishDir "${params.outdir}/trimm_optimal_dada2", mode: 'copy', overwrite: true
 
     input:
     tuple val(opt_id), val(trunc_f), val(trunc_r), path(demux)
@@ -32,19 +32,21 @@ process DADA2_TRIMM_SWEEP {
 }
 
 process TAXONOMY_TRIMM_SWEEP {
-    tag opt_id
+    tag "${taxonomy_label}:${opt_id}"
     label 'process_high'
     container params.qiime_sif
     errorStrategy 'ignore'
 
-    publishDir "${params.outdir}/trimm_optimal", mode: 'copy', overwrite: true
+    publishDir "${params.outdir}", mode: 'copy', overwrite: true,
+        saveAs: { filename -> "trimm_optimal_${taxonomy_label}/${filename}" }
 
     input:
     tuple val(opt_id), val(trunc_f), val(trunc_r), path(table), path(repseq), path(stats)
     path classifier
+    val taxonomy_label
 
     output:
-    tuple val(opt_id), val(trunc_f), val(trunc_r), path(table), path(repseq), path(stats),
+    tuple val(taxonomy_label), val(opt_id), val(trunc_f), val(trunc_r), path(table), path(repseq), path(stats),
           path("${opt_id}.taxonomy.qza"), path("${opt_id}.metrics.tsv"), emit: evaluated
 
     script:
@@ -62,11 +64,12 @@ process TAXONOMY_TRIMM_SWEEP {
     qiime tools export --input-path ${opt_id}.taxonomy.qza --output-path tax_export
     biom convert -i table_export/feature-table.biom -o feature-table.tsv --to-tsv
 
-    python - "${opt_id}" "${trunc_f}" "${trunc_r}" "${params.optimal_min_sample_reads}" <<'PY'
+    python - "${taxonomy_label}" "${opt_id}" "${trunc_f}" "${trunc_r}" "${params.optimal_min_sample_reads}" <<'PY'
 import csv, re, sys
 from pathlib import Path
 
-opt_id, trunc_f, trunc_r, min_reads = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4])
+reference_db, opt_id = sys.argv[1], sys.argv[2]
+trunc_f, trunc_r, min_reads = int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5])
 
 stats_file = next(Path('stats_export').glob('*.tsv'))
 with stats_file.open() as handle:
@@ -111,10 +114,10 @@ species_reads = sum(count for fid, count in feature_reads.items() if taxonomy.ge
 def pct(a, b):
     return 0.0 if not b else 100.0 * a / b
 
-fields = ['parameter_set','trunc_len_f','trunc_len_r','samples','input_reads','filtered_pct','merged_pct',
+fields = ['reference_db','parameter_set','trunc_len_f','trunc_len_r','samples','input_reads','filtered_pct','merged_pct',
           'nonchimeric_reads','nonchimeric_pct','total_asvs','species_asvs','species_asv_pct',
           'species_reads','species_read_pct','species_input_yield','samples_below_min_reads','zero_merge_samples']
-values = [opt_id,trunc_f,trunc_r,len(rows),int(input_reads),pct(filtered,input_reads),pct(merged,input_reads),
+values = [reference_db,opt_id,trunc_f,trunc_r,len(rows),int(input_reads),pct(filtered,input_reads),pct(merged,input_reads),
           int(nonchim),pct(nonchim,input_reads),total_asvs,species_asvs,pct(species_asvs,total_asvs),
           int(species_reads),pct(species_reads,table_reads),pct(species_reads,input_reads),low_depth,zero_merge]
 with open(f'{opt_id}.metrics.tsv','w',newline='') as handle:
@@ -126,14 +129,15 @@ PY
 }
 
 process SELECT_TRIMM_OPTIMAL {
-    tag 'rank_all_candidates'
+    tag "${taxonomy_label}:rank_all_candidates"
     label 'process_low'
     container params.qiime_sif
 
-    publishDir "${params.outdir}/trimm_optimal/selected", mode: 'copy', overwrite: true
+    publishDir "${params.outdir}", mode: 'copy', overwrite: true,
+        saveAs: { filename -> "trimm_optimal_${taxonomy_label}/selected/${filename}" }
 
     input:
-    path candidate_files
+    tuple val(taxonomy_label), path(candidate_files)
 
     output:
     path 'optimal_selection.tsv', emit: selection
