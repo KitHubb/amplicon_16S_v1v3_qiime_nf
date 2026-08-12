@@ -137,7 +137,8 @@ process SELECT_TRIMM_OPTIMAL {
         saveAs: { filename -> "trimm_optimal_${taxonomy_label}/selected/${filename}" }
 
     input:
-    tuple val(taxonomy_label), path(candidate_files)
+    val taxonomy_label
+    path candidate_files
 
     output:
     path 'optimal_selection.tsv', emit: selection

@@ -36,11 +36,7 @@ workflow TRIMM_OPTIMAL_WORKFLOW {
         }
         .collect()
 
-    selection_input = taxonomy_label
-        .combine(candidate_files)
-        .map { db, files -> tuple(db, files) }
-
-    SELECT_TRIMM_OPTIMAL(selection_input)
+    SELECT_TRIMM_OPTIMAL(taxonomy_label, candidate_files)
 
     emit:
     table           = SELECT_TRIMM_OPTIMAL.out.table
